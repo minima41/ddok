@@ -1,0 +1,4 @@
+<resources>
+    <string name="app_name">7시 똑닥 매크로</string>
+    <string name="accessibility_description">똑닥 화면에서 사용자가 저장한 클릭 순서를 지정 시간에 재생합니다. 대상 앱은 똑닥(com.bbros.sayup)으로 제한됩니다.</string>
+</resources>
