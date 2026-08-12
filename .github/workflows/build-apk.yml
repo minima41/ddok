@@ -7,6 +7,10 @@ on:
   push:
     branches: [ main ]
 
+permissions:
+  contents: read
+  actions: read
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -39,19 +43,45 @@ jobs:
           cp app/build/outputs/apk/debug/app-debug.apk ddok-debug.apk
           cp app/build/outputs/apk/release/app-release-unsigned.apk ddok-release-unsigned.apk
 
+      - name: Restore existing release signing key
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p signing-key
+          gh api repos/${GITHUB_REPOSITORY}/actions/artifacts/9141360268/zip > signing-key-bundle.zip
+          unzip -q signing-key-bundle.zip 'ddok-release-key.p12' 'ddok-release-key-info.txt' -d signing-key
+          KEY_PASSWORD=$(awk -F': ' '/^Password:/ {print $2}' signing-key/ddok-release-key-info.txt)
+          test -n "$KEY_PASSWORD"
+          echo "::add-mask::$KEY_PASSWORD"
+          echo "DDOK_KEY_PASSWORD=$KEY_PASSWORD" >> "$GITHUB_ENV"
+
+      - name: Align and sign release APK
+        run: |
+          BUILD_TOOLS=$(find "$ANDROID_HOME/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -1)
+          "$BUILD_TOOLS/zipalign" -f -p 4 ddok-release-unsigned.apk ddok-release-aligned.apk
+          "$BUILD_TOOLS/apksigner" sign \
+            --ks signing-key/ddok-release-key.p12 \
+            --ks-type PKCS12 \
+            --ks-key-alias ddok-release \
+            --ks-pass env:DDOK_KEY_PASSWORD \
+            --out ddok-release-signed.apk \
+            ddok-release-aligned.apk
+          "$BUILD_TOOLS/apksigner" verify --verbose --print-certs ddok-release-signed.apk > ddok-release-signature-report.txt
+          sha256sum ddok-release-signed.apk > ddok-release-signed.sha256
+
+      - name: Upload signed release APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: ddok-1.3-signed-release
+          path: |
+            ddok-release-signed.apk
+            ddok-release-signed.sha256
+            ddok-release-signature-report.txt
+          if-no-files-found: error
+
       - name: Upload debug APK
         uses: actions/upload-artifact@v4
         with:
           name: ddok-debug-apk
           path: ddok-debug.apk
           if-no-files-found: error
-
-      - name: Upload unsigned release APK
-        uses: actions/upload-artifact@v4
-        with:
-          name: ddok-release-unsigned-apk
-          path: ddok-release-unsigned.apk
-          if-no-files-found: error
-
-# Release signing is intentionally kept off-repository.
-# The dedicated private signing key generated for the initial signed build must be reused for updates.
