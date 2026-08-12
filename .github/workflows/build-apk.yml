@@ -39,60 +39,6 @@ jobs:
           cp app/build/outputs/apk/debug/app-debug.apk ddok-debug.apk
           cp app/build/outputs/apk/release/app-release-unsigned.apk ddok-release-unsigned.apk
 
-      - name: Create dedicated release signing key
-        shell: bash
-        run: |
-          set -euo pipefail
-          KEY_PASS="$(openssl rand -hex 24)"
-          echo "KEY_PASS=$KEY_PASS" >> "$GITHUB_ENV"
-          keytool -genkeypair -v \
-            -keystore ddok-release-key.p12 \
-            -storetype PKCS12 \
-            -storepass "$KEY_PASS" \
-            -keypass "$KEY_PASS" \
-            -alias ddok-release \
-            -keyalg RSA \
-            -keysize 4096 \
-            -sigalg SHA256withRSA \
-            -validity 10950 \
-            -dname "CN=ddok personal release, OU=Personal, O=ddok, L=Seoul, C=KR"
-          {
-            echo "DDOK release signing key"
-            echo "========================"
-            echo "File: ddok-release-key.p12"
-            echo "Type: PKCS12"
-            echo "Alias: ddok-release"
-            echo "Password: $KEY_PASS"
-            echo "Validity: 30 years"
-            echo
-            echo "Keep this key and password private. Future APK updates must use this same key."
-          } > ddok-release-key-info.txt
-
-      - name: Align and sign release APK
-        shell: bash
-        run: |
-          set -euo pipefail
-          BUILD_TOOLS="$(find "$ANDROID_HOME/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -1)"
-          ZIPALIGN="$BUILD_TOOLS/zipalign"
-          APKSIGNER="$BUILD_TOOLS/apksigner"
-          test -x "$ZIPALIGN"
-          test -x "$APKSIGNER"
-          "$ZIPALIGN" -p -f 4 ddok-release-unsigned.apk ddok-release-aligned.apk
-          "$APKSIGNER" sign \
-            --ks ddok-release-key.p12 \
-            --ks-type PKCS12 \
-            --ks-key-alias ddok-release \
-            --ks-pass "pass:$KEY_PASS" \
-            --key-pass "pass:$KEY_PASS" \
-            --v1-signing-enabled true \
-            --v2-signing-enabled true \
-            --v3-signing-enabled true \
-            --out ddok-release-signed.apk \
-            ddok-release-aligned.apk
-          "$APKSIGNER" verify --verbose --print-certs ddok-release-signed.apk | tee ddok-release-signature-report.txt
-          sha256sum ddok-release-signed.apk > ddok-release-signed.sha256
-          sha256sum ddok-release-key.p12 > ddok-release-key.sha256
-
       - name: Upload debug APK
         uses: actions/upload-artifact@v4
         with:
@@ -107,15 +53,5 @@ jobs:
           path: ddok-release-unsigned.apk
           if-no-files-found: error
 
-      - name: Upload signed release bundle
-        uses: actions/upload-artifact@v4
-        with:
-          name: ddok-signed-release-bundle
-          path: |
-            ddok-release-signed.apk
-            ddok-release-signed.sha256
-            ddok-release-signature-report.txt
-            ddok-release-key.p12
-            ddok-release-key.sha256
-            ddok-release-key-info.txt
-          if-no-files-found: error
+# Release signing is intentionally kept off-repository.
+# The dedicated private signing key generated for the initial signed build must be reused for updates.
