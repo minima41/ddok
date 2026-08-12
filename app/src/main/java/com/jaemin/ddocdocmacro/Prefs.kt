@@ -2,6 +2,7 @@ package com.jaemin.ddocdocmacro
 
 import android.content.Context
 import androidx.core.content.edit
+import java.time.LocalDate
 import java.util.Locale
 
 object Prefs {
@@ -40,12 +41,14 @@ object Prefs {
 
     val CHAEEUM_PRESET_SCRIPT = """
         # 채움소아청소년과 / 예약 대상과 시간 우선순위는 앱 화면에서 선택합니다.
-        # 똑닥이 마지막으로 열었던 채움소아청소년과 화면을 복원한다는 기준입니다.
+        # 실제 확인 순서: 시간예약 → 아이 → 다음 → 김민채 원장 → 일반진료 → 다음 → 오늘 → 시간 → 다음
         WAIT 700
         TAP_TEXT_EXACT 5000 | 시간예약
         WAIT 180
         TAP_TEXT_EXACT 5000 | {{PATIENT}}
-        WAIT 180
+        WAIT 120
+        RETRY_TEXT 2500 30 | 다음
+        WAIT 160
         TAP_TEXT 4000 | [1진료실] 김민채 원장님
 
         # 진료실 선택 직후 공지가 뜨는 날에만 확인하고, 없으면 그대로 넘어갑니다.
@@ -53,11 +56,16 @@ object Prefs {
         WAIT 120
         TAP_TEXT_EXACT 3000 | 일반진료
 
-        # 일반진료 선택 화면에서 정각까지 대기한 뒤 시간표를 새로 불러옵니다.
+        # 일반진료까지 미리 선택해 두고 07:00 정각에 다음으로 넘어갑니다.
         WAIT_UNTIL 07:00:00.000
         RETRY_TEXT 2500 30 | 다음
+        WAIT 120
 
-        # 앱 화면에서 고른 1~5순위 시간을 차례대로 시도합니다.
+        # 달력에서 오늘 날짜를 누릅니다. 숫자는 실행 당일 자동으로 바뀝니다.
+        TAP_TEXT 3000 | {{TODAY_DAY}}
+        WAIT 100
+
+        # 앱 화면에서 고른 1~5순위 시간을 차례대로 시도하고, 선택 뒤 '다음'까지 자동 처리합니다.
         BOOK_APPOINTMENT 18000 30 1800 | {{TIME_PRIORITIES}}
     """.trimIndent()
 
@@ -79,7 +87,25 @@ object Prefs {
     fun daysMask(context: Context): Int = sp(context).getInt(KEY_DAYS, DEFAULT_DAYS_MASK)
     fun setDaysMask(context: Context, value: Int) = sp(context).edit { putInt(KEY_DAYS, value) }
 
-    fun script(context: Context): String = sp(context).getString(KEY_SCRIPT, DEFAULT_SCRIPT) ?: DEFAULT_SCRIPT
+    private fun migrateLegacyChaeeumPreset(value: String): String {
+        val looksLikeChaeeumPreset = value.contains("채움소아청소년과") &&
+            value.contains("김민채 원장님") &&
+            value.contains("BOOK_APPOINTMENT")
+        return if (looksLikeChaeeumPreset && !value.contains("{{TODAY_DAY}}")) {
+            CHAEEUM_PRESET_SCRIPT
+        } else {
+            value
+        }
+    }
+
+    fun script(context: Context): String {
+        val prefs = sp(context)
+        val raw = prefs.getString(KEY_SCRIPT, DEFAULT_SCRIPT) ?: DEFAULT_SCRIPT
+        val migrated = migrateLegacyChaeeumPreset(raw)
+        if (migrated != raw) prefs.edit { putString(KEY_SCRIPT, migrated) }
+        return migrated
+    }
+
     fun setScript(context: Context, value: String) = sp(context).edit { putString(KEY_SCRIPT, value) }
 
     fun patient(context: Context): String =
@@ -110,10 +136,12 @@ object Prefs {
     fun renderTemplate(template: String, patient: String, priorities: List<String>): String {
         val cleaned = priorities.map { it.trim() }.filter { it.isNotBlank() }.distinct()
         val timeText = cleaned.joinToString(",")
+        val todayDay = LocalDate.now().dayOfMonth.toString()
 
         var rendered = template
             .replace("{{PATIENT}}", patient)
             .replace("{{TIME_PRIORITIES}}", timeText)
+            .replace("{{TODAY_DAY}}", todayDay)
 
         rendered = patientLineRegex.replace(rendered) { match ->
             "${match.groupValues[1]}$patient"
