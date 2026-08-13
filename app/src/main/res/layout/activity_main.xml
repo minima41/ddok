@@ -13,7 +13,18 @@
         <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="7시 똑닥 예약" android:textSize="26sp" android:textStyle="bold" />
         <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="6dp" android:text="채움소아청소년과 · 김민채 원장님" android:textSize="15sp" />
 
-        <TextView android:id="@+id/statusText" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="16dp" android:background="#10000000" android:padding="12dp" android:textSize="13sp" />
+        <TextView
+            android:id="@+id/autoRunStatusText"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:gravity="center"
+            android:padding="14dp"
+            android:text="자동 예약 OFF"
+            android:textSize="20sp"
+            android:textStyle="bold" />
+
+        <TextView android:id="@+id/statusText" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="8dp" android:background="#10000000" android:padding="12dp" android:textSize="13sp" />
 
         <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="12dp" android:orientation="horizontal">
             <Button android:id="@+id/accessibilityButton" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="접근성" />
@@ -66,9 +77,9 @@
 
         <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="12dp" android:orientation="horizontal">
             <Button android:id="@+id/testButton" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="지금 테스트" />
-            <Button android:id="@+id/scheduleButton" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_marginStart="8dp" android:layout_weight="1" android:text="매일 실행 등록" />
+            <Button android:id="@+id/scheduleButton" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_marginStart="8dp" android:layout_weight="1" android:text="자동 예약 켜기 (ON)" />
         </LinearLayout>
-        <Button android:id="@+id/cancelButton" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="예약 실행 중지" />
+        <Button android:id="@+id/cancelButton" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="자동 예약 끄기 (OFF)" />
 
         <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="18dp" android:text="테스트 모드는 07:00 대기를 건너뛰고 최종 ‘동의하고 예약하기’ 버튼 직전에 멈춥니다." android:textSize="12sp" />
     </LinearLayout>
