@@ -42,20 +42,25 @@ object Prefs {
 
     val CHAEEUM_PRESET_SCRIPT = """
         # 채움소아청소년과 / 예약 대상과 시간 우선순위는 앱 화면에서 선택합니다.
-        # 실제 확인 순서: 똑닥 홈 → 채움소아청소년과의원 → 시간예약 → 아이 → 다음 → 김민채 원장 → 일반진료 → 다음 → 오늘 → 시간 → 다음
+        # 실제 확인 순서: 홈 → 병원명 → 병원명 → 시간예약 → 아이 카드 → 다음 → 김민채 원장 → 일반진료 → 다음 → 오늘 → 시간 → 다음
         WAIT 700
 
-        # 똑닥을 처음 열었을 때 홈 화면이면 병원 이름을 눌러 병원 상세로 들어갑니다.
-        # 이미 병원 상세 화면이라면 이 단계는 실패해도 그대로 다음 단계로 진행합니다.
+        # 홈에서 병원 관련 페이지로 들어간 뒤 다음 페이지에서 병원명을 한 번 더 누릅니다.
         TRY_TEXT_EXACT 4000 | 채움소아청소년과의원
-        WAIT 250
+        WAIT 350
+        TRY_TEXT_EXACT 4000 | 채움소아청소년과의원
+        WAIT 350
 
         TAP_TEXT_EXACT 5000 | 시간예약
+        WAIT 250
+
+        # 진료대상 이름 글자가 아니라 카드 중앙을 실제 터치합니다.
+        # 이도아/이도연 선택에 따라 아래 Y 좌표가 자동으로 바뀝니다.
+        TAP_PCT 50 {{PATIENT_Y}}
         WAIT 180
-        TAP_TEXT_EXACT 5000 | {{PATIENT}}
-        WAIT 120
-        RETRY_TEXT 2500 30 | 다음
-        WAIT 160
+        RETRY_TEXT 3000 40 | 다음
+        WAIT 180
+
         TAP_TEXT 4000 | [1진료실] 김민채 원장님
 
         # 진료실 선택 직후 공지가 뜨는 날에만 확인하고, 없으면 그대로 넘어갑니다.
@@ -72,7 +77,7 @@ object Prefs {
         TAP_TEXT 3000 | {{TODAY_DAY}}
         WAIT 100
 
-        # 앱 화면에서 고른 1~5순위 시간을 차례대로 시도하고, 선택 뒤 '다음'까지 자동 처리합니다.
+        # 앱 화면에서 고른 1~5순위 시간을 차례대로 시도합니다.
         BOOK_APPOINTMENT 18000 30 1800 | {{TIME_PRIORITIES}}
     """.trimIndent()
 
@@ -97,12 +102,15 @@ object Prefs {
     private fun migrateLegacyChaeeumPreset(value: String): String {
         val looksLikeChaeeumPreset = value.contains("김민채 원장님") &&
             value.contains("BOOK_APPOINTMENT")
-        val hasHomeHospitalEntry = value.lineSequence().any { line ->
+        val hospitalTapCount = value.lineSequence().count { line ->
             val trimmed = line.trim()
             (trimmed.startsWith("TAP_TEXT") || trimmed.startsWith("TRY_TEXT")) &&
                 trimmed.contains("| $HOSPITAL_NAME")
         }
-        return if (looksLikeChaeeumPreset && (!value.contains("{{TODAY_DAY}}") || !hasHomeHospitalEntry)) {
+        val hasPatientCardTap = value.contains("{{PATIENT_Y}}")
+        return if (looksLikeChaeeumPreset &&
+            (!value.contains("{{TODAY_DAY}}") || hospitalTapCount < 2 || !hasPatientCardTap)
+        ) {
             CHAEEUM_PRESET_SCRIPT
         } else {
             value
@@ -148,9 +156,11 @@ object Prefs {
         val cleaned = priorities.map { it.trim() }.filter { it.isNotBlank() }.distinct()
         val timeText = cleaned.joinToString(",")
         val todayDay = LocalDate.now().dayOfMonth.toString()
+        val patientY = if (patient == "이도연") "48.3" else "38.0"
 
         var rendered = template
             .replace("{{PATIENT}}", patient)
+            .replace("{{PATIENT_Y}}", patientY)
             .replace("{{TIME_PRIORITIES}}", timeText)
             .replace("{{TODAY_DAY}}", todayDay)
 
