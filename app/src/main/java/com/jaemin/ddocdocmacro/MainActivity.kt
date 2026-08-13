@@ -4,6 +4,7 @@ import android.Manifest
 import android.content.ComponentName
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.graphics.Color
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
@@ -99,13 +100,24 @@ class MainActivity : AppCompatActivity() {
             if (!saveAndValidate()) return@setOnClickListener
             if (!requireAccessibility()) return@setOnClickListener
             Prefs.setEnabled(this, true)
-            if (!AlarmScheduler.canScheduleExact(this)) { toast("정확한 알람 권한을 켠 뒤 이 화면으로 돌아오세요."); binding.exactAlarmButton.performClick(); return@setOnClickListener }
+            if (!AlarmScheduler.canScheduleExact(this)) {
+                Prefs.setEnabled(this, false)
+                toast("정확한 알람 권한을 켠 뒤 다시 ON 해주세요.")
+                binding.exactAlarmButton.performClick()
+                updateStatus()
+                return@setOnClickListener
+            }
             val next = AlarmScheduler.scheduleNext(this)
-            if (next == null) toast("실행 요일과 시각을 확인하세요.") else toast("다음 실행: ${AlarmScheduler.format(next)}")
+            if (next == null) {
+                Prefs.setEnabled(this, false)
+                toast("실행 요일과 시각을 확인하세요.")
+            } else {
+                toast("자동 예약 ON · 다음 실행: ${AlarmScheduler.format(next)}")
+            }
             updateStatus()
         }
         binding.cancelButton.setOnClickListener {
-            Prefs.setEnabled(this, false); Prefs.setPending(this, false); Prefs.setRecording(this, false); AlarmScheduler.cancel(this); toast("예약 실행을 중지했습니다."); updateStatus()
+            Prefs.setEnabled(this, false); Prefs.setPending(this, false); Prefs.setRecording(this, false); AlarmScheduler.cancel(this); toast("자동 예약 OFF · 실행을 중지했습니다."); updateStatus()
         }
     }
 
@@ -172,16 +184,31 @@ class MainActivity : AppCompatActivity() {
     private fun isBatteryUnrestricted(): Boolean = getSystemService(PowerManager::class.java).isIgnoringBatteryOptimizations(packageName)
 
     private fun updateStatus() {
+        val autoEnabled = Prefs.enabled(this)
         val accessibility = if (isAccessibilityEnabled()) "켜짐" else "꺼짐"
         val exact = if (AlarmScheduler.canScheduleExact(this)) "허용" else "미허용"
         val battery = if (isBatteryUnrestricted()) "제한 없음" else "제한 가능"
-        val enabled = if (Prefs.enabled(this)) "등록됨" else "중지됨"
-        val next = if (Prefs.enabled(this)) AlarmScheduler.computeNextTrigger(this)?.let(AlarmScheduler::format) ?: "계산 불가" else "없음"
+        val enabled = if (autoEnabled) "ON" else "OFF"
+        val next = if (autoEnabled) AlarmScheduler.computeNextTrigger(this)?.let(AlarmScheduler::format) ?: "계산 불가" else "없음"
         val lastRun = Prefs.lastRun(this).takeIf { it > 0L }?.let { SimpleDateFormat("M/d HH:mm:ss", Locale.KOREA).format(Date(it)) } ?: "없음"
         val target = "${Prefs.patient(this)} / ${Prefs.timePriorities(this).joinToString(" → ")}"
+
+        binding.autoRunStatusText.apply {
+            if (autoEnabled) {
+                text = "● 자동 예약 ON\n다음 실행: $next"
+                setTextColor(Color.parseColor("#1B5E20"))
+                setBackgroundColor(Color.parseColor("#E8F5E9"))
+            } else {
+                text = "○ 자동 예약 OFF\n자동 실행이 중지되어 있습니다"
+                setTextColor(Color.parseColor("#B71C1C"))
+                setBackgroundColor(Color.parseColor("#FFEBEE"))
+            }
+        }
+
         binding.statusText.text = buildString {
+            appendLine("자동 예약: $enabled")
             appendLine("접근성: $accessibility  ·  정확한 알람: $exact")
-            appendLine("배터리: $battery  ·  실행: $enabled")
+            appendLine("배터리: $battery")
             appendLine("설정: $target")
             appendLine("다음 실행: $next")
             append("최근 결과: $lastRun / ${Prefs.lastResult(this@MainActivity)}")
