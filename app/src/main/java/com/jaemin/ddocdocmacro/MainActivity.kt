@@ -93,8 +93,8 @@ class MainActivity : AppCompatActivity() {
         binding.testButton.setOnClickListener {
             if (!saveAndValidate()) return@setOnClickListener
             if (!requireAccessibility()) return@setOnClickListener
-            AutomationAccessibilityService.requestManualRun(this, testMode = true)
-            toast("테스트 실행: 정각 대기는 건너뛰고 최종 예약 버튼 앞에서 멈춥니다.")
+            AutomationAccessibilityService.requestManualRun(this, testMode = false)
+            toast("일회성 실예약 실행 · 최종 예약 버튼까지 실제로 진행합니다.")
         }
         binding.scheduleButton.setOnClickListener {
             if (!saveAndValidate()) return@setOnClickListener
