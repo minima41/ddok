@@ -14,8 +14,14 @@ class ScriptParserTest {
 
     @Test fun rendersPatientAndPriorities() {
         val rendered = Prefs.renderTemplate(Prefs.CHAEEUM_PRESET_SCRIPT, "이도연", listOf("09:10", "09:30"))
-        assertTrue(rendered.contains("TAP_TEXT_EXACT 5000 | 이도연"))
+        assertTrue(rendered.contains("TAP_PCT 50 48.3"))
         assertTrue(rendered.contains("BOOK_APPOINTMENT 18000 30 1800 | 09:10,09:30"))
+        assertTrue(ScriptParser.parse(rendered).errors.isEmpty())
+    }
+
+    @Test fun rendersDoaCardPosition() {
+        val rendered = Prefs.renderTemplate(Prefs.CHAEEUM_PRESET_SCRIPT, "이도아", listOf("09:10"))
+        assertTrue(rendered.contains("TAP_PCT 50 38.0"))
         assertTrue(ScriptParser.parse(rendered).errors.isEmpty())
     }
 
