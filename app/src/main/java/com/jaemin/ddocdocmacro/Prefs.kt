@@ -27,6 +27,7 @@ object Prefs {
     const val DEFAULT_DAYS_MASK = 0b1111111
     const val DEFAULT_PATIENT = "이도아"
     const val NO_TIME = "사용 안 함"
+    const val HOSPITAL_NAME = "채움소아청소년과의원"
 
     val DEFAULT_TIME_PRIORITIES = listOf("09:10", "09:20", "09:30")
 
@@ -41,8 +42,14 @@ object Prefs {
 
     val CHAEEUM_PRESET_SCRIPT = """
         # 채움소아청소년과 / 예약 대상과 시간 우선순위는 앱 화면에서 선택합니다.
-        # 실제 확인 순서: 시간예약 → 아이 → 다음 → 김민채 원장 → 일반진료 → 다음 → 오늘 → 시간 → 다음
+        # 실제 확인 순서: 똑닥 홈 → 채움소아청소년과의원 → 시간예약 → 아이 → 다음 → 김민채 원장 → 일반진료 → 다음 → 오늘 → 시간 → 다음
         WAIT 700
+
+        # 똑닥을 처음 열었을 때 홈 화면이면 병원 이름을 눌러 병원 상세로 들어갑니다.
+        # 이미 병원 상세 화면이라면 이 단계는 실패해도 그대로 다음 단계로 진행합니다.
+        TRY_TEXT_EXACT 4000 | 채움소아청소년과의원
+        WAIT 250
+
         TAP_TEXT_EXACT 5000 | 시간예약
         WAIT 180
         TAP_TEXT_EXACT 5000 | {{PATIENT}}
@@ -88,10 +95,14 @@ object Prefs {
     fun setDaysMask(context: Context, value: Int) = sp(context).edit { putInt(KEY_DAYS, value) }
 
     private fun migrateLegacyChaeeumPreset(value: String): String {
-        val looksLikeChaeeumPreset = value.contains("채움소아청소년과") &&
-            value.contains("김민채 원장님") &&
+        val looksLikeChaeeumPreset = value.contains("김민채 원장님") &&
             value.contains("BOOK_APPOINTMENT")
-        return if (looksLikeChaeeumPreset && !value.contains("{{TODAY_DAY}}")) {
+        val hasHomeHospitalEntry = value.lineSequence().any { line ->
+            val trimmed = line.trim()
+            (trimmed.startsWith("TAP_TEXT") || trimmed.startsWith("TRY_TEXT")) &&
+                trimmed.contains("| $HOSPITAL_NAME")
+        }
+        return if (looksLikeChaeeumPreset && (!value.contains("{{TODAY_DAY}}") || !hasHomeHospitalEntry)) {
             CHAEEUM_PRESET_SCRIPT
         } else {
             value
